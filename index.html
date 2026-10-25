@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Private Docs - Kho Lưu Trữ Tài Liệu & Media</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20width=%22100%22%20height=%22100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Thư viện hỗ trợ đọc sách EPUB (JSZip + ePub.js) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ======================================================================
+       1. MÀN HÌNH ĐĂNG NHẬP (PASSWORD PROTECTION)
+       ====================================================================== -->
+  <section id="loginSection" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-icon-box">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h1>Private Docs</h1>
+        <p>Kho tài liệu, sách điện tử & file âm thanh cá nhân</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="input-group">
+          <label class="input-label" for="loginPassword">Mật khẩu truy cập</label>
+          <div class="input-wrapper">
+            <input 
+              type="password" 
+              id="loginPassword" 
+              class="input-field" 
+              placeholder="Nhập mật khẩu..." 
+              autocomplete="current-password"
+              required
+            >
+            <button type="button" id="togglePasswordVisibility" class="input-action-btn" title="Hiển thị/Ẩn mật khẩu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="remember-row">
+          <label class="remember-label">
+            <input type="checkbox" id="rememberMeCheck" checked>
+            <span>Ghi nhớ phiên đăng nhập</span>
+          </label>
+        </div>
+
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-full">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+          Mở khóa kho tài liệu
+        </button>
+
+        <div id="loginError" class="login-error hidden"></div>
+      </form>
+
+      <div class="login-hint">
+        Mật khẩu mặc định ban đầu: <code>admin123</code><br>
+        (Bạn có thể đổi mật khẩu bất cứ lúc nào trong file <code>js/config.js</code>)
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       2. MÀN HÌNH CHÍNH (MAIN APP VAULT)
+       ====================================================================== -->
+  <section id="appSection" class="hidden">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <!-- Nút bật/tắt thanh điều hướng Navigation Bar -->
+        <button id="navToggleBtn" class="nav-toggle-btn" title="Mở thanh điều hướng">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+          <span class="nav-toggle-text">Thư mục</span>
+        </button>
+
+        <a href="#" class="app-brand" onclick="location.reload(); return false;">
+          <div class="app-brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            </svg>
+          </div>
+          <span>Private Docs</span>
+        </a>
+      </div>
+
+      <!-- Quick Search Bar -->
+      <div class="header-search">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input 
+          type="text" 
+          id="searchInput" 
+          class="search-input-box" 
+          placeholder="Tìm kiếm tài liệu, sách, audio... (nhấn /)"
+        >
+        <button id="clearSearchBtn" class="search-clear-btn hidden" title="Xóa tìm kiếm">✕</button>
+      </div>
+
+      <div class="header-right">
+        <!-- Theme Toggle -->
+        <button id="themeToggleBtn" class="icon-btn" title="Chuyển đổi giao diện Sáng / Tối"></button>
+
+        <!-- Change Password Modal Button -->
+        <button id="openPasswordModalBtn" class="icon-btn" title="Đổi mật khẩu / Tạo mã Hash">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </button>
+
+        <!-- Logout Button -->
+        <button id="logoutBtn" class="icon-btn" title="Khóa & Đăng xuất">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" x2="9" y1="12" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Overlay cho sidebar trên mobile -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <!-- Main Layout -->
+    <div class="app-layout">
+      <!-- Sidebar Thư mục (Mặc định thu gọn) -->
+      <aside id="sidebar" class="sidebar">
+        <!-- Sidebar Header với nút đóng/thu gọn -->
+        <div class="sidebar-header">
+          <div class="sidebar-header-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>
+            </svg>
+            <span>Cây thư mục</span>
+          </div>
+          <button id="sidebarCloseBtn" class="icon-btn-sm" title="Thu gọn thanh điều hướng (Esc)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="sidebar-tree-wrapper">
+          <div class="sidebar-section-header">
+            <span class="sidebar-section-title">Danh sách thư mục</span>
+            <div class="tree-quick-actions">
+              <button id="treeExpandAllBtn" class="tree-quick-btn" title="Mở rộng tất cả thư mục con">Mở hết</button>
+              <button id="treeCollapseAllBtn" class="tree-quick-btn" title="Thu gọn tất cả thư mục">Thu gọn</button>
+            </div>
+          </div>
+          <div id="sidebarFolderTree" class="sidebar-folder-tree"></div>
+        </div>
+
+        <!-- Thống kê tài liệu -->
+        <div id="sidebarStats" class="sidebar-stats"></div>
+      </aside>
+
+      <!-- Vùng duyệt File -->
+      <main class="main-content">
+        <!-- Toolbar -->
+        <div class="toolbar-row">
+          <div class="breadcrumbs-wrapper">
+            <!-- Nút quay lại thư mục cha -->
+            <button id="backFolderBtn" class="back-folder-btn hidden" title="Quay lại thư mục cha">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+              <span>Quay lại</span>
+            </button>
+            <!-- Breadcrumb navigation -->
+            <nav id="breadcrumbs" class="breadcrumbs"></nav>
+          </div>
+
+          <!-- Controls -->
+          <div class="toolbar-controls">
+            <!-- Sắp xếp -->
+            <select id="sortSelect" class="sort-select">
+              <option value="name-asc">Tên (A-Z)</option>
+              <option value="name-desc">Tên (Z-A)</option>
+              <option value="size-asc">Kích thước (Nhỏ trước)</option>
+              <option value="size-desc">Kích thước (Lớn trước)</option>
+              <option value="date-desc">Mới nhất</option>
+            </select>
+
+            <!-- Chế độ xem: Grid / List -->
+            <div class="view-mode-group">
+              <button id="viewGridBtn" class="view-btn active" title="Chế độ Lưới (Grid)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+              </button>
+              <button id="viewListBtn" class="view-btn" title="Chế độ Danh sách (List)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="8" y1="6" x2="21" y2="6"/>
+                  <line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/>
+                  <line x1="3" y1="12" x2="3.01" y2="12"/>
+                  <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Chips -->
+        <div class="filter-row">
+          <button class="filter-chip active" data-filter="all">Tất cả</button>
+          <button class="filter-chip" data-filter="folder">Thư mục</button>
+          <button class="filter-chip" data-filter="pdf">PDF</button>
+          <button class="filter-chip" data-filter="epub">EPUB</button>
+          <button class="filter-chip" data-filter="audio">Audio</button>
+          <button class="filter-chip" data-filter="other">Khác</button>
+        </div>
+
+        <!-- Header thư mục hiện tại -->
+        <div class="folder-header-bar">
+          <h2 id="currentFolderTitle" class="folder-title">Thư mục gốc</h2>
+          <span id="currentFolderStats" class="folder-stats-text">Đang tải...</span>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="empty-state-card hidden">
+          <p>Đang tải danh sách tài liệu...</p>
+        </div>
+
+        <!-- Vùng hiển thị file & folder -->
+        <div id="fileGridArea" class="file-grid"></div>
+      </main>
+    </div>
+
+    <!-- ======================================================================
+         THANH PHÁT AUDIO CỐ ĐỊNH (AUDIO PLAYER BAR)
+         ====================================================================== -->
+    <footer id="audioPlayerBar" class="audio-player-bar hidden">
+      <audio id="globalAudioElement" preload="metadata"></audio>
+
+      <!-- Track info -->
+      <div class="audio-track-info">
+        <div class="audio-album-art">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18V5l12-2v13"/>
+            <circle cx="6" cy="18" r="3"/>
+            <circle cx="18" cy="16" r="3"/>
+          </svg>
+        </div>
+        <div class="audio-track-text">
+          <div id="audioTrackTitle" class="audio-track-title">Chưa chọn bài</div>
+          <div class="audio-track-sub">Đang phát audio</div>
+        </div>
+      </div>
+
+      <!-- Controls chính -->
+      <div class="audio-center-controls">
+        <div class="audio-buttons-row">
+          <button id="audioPrevBtn" class="audio-btn" title="Bài trước">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="19 20 9 12 19 4 19 20"/>
+              <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </button>
+
+          <button id="audioRewindBtn" class="audio-btn" title="Tua lùi 10 giây">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 4v6h6"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+              <text x="12" y="15" font-size="7" font-weight="bold" fill="currentColor" text-anchor="middle">10</text>
+            </svg>
+          </button>
+
+          <button id="audioPlayPauseBtn" class="audio-play-btn" title="Phát / Tạm dừng">
+            <span id="audioPlayPauseIcon">
+              <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
+            </span>
+          </button>
+
+          <button id="audioForwardBtn" class="audio-btn" title="Tua tới 10 giây">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              <text x="12" y="15" font-size="7" font-weight="bold" fill="currentColor" text-anchor="middle">10</text>
+            </svg>
+          </button>
+
+          <button id="audioNextBtn" class="audio-btn" title="Bài tiếp theo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 4 15 12 5 20 5 4"/>
+              <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="audio-progress-row">
+          <span id="audioCurrentTime">00:00</span>
+          <input type="range" id="audioProgressBar" class="audio-slider" min="0" max="100" value="0">
+          <span id="audioDuration">00:00</span>
+        </div>
+      </div>
+
+      <!-- Controls phụ (Speed, Volume, Download) -->
+      <div class="audio-right-controls">
+        <button id="audioSpeedBtn" class="audio-speed-btn" title="Tốc độ phát">1x</button>
+        
+        <div class="audio-volume-box">
+          <button id="audioMuteBtn" class="audio-btn" title="Tắt / Bật tiếng">
+            <span id="audioMuteIcon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+            </span>
+          </button>
+          <input type="range" id="audioVolumeSlider" class="volume-slider" min="0" max="100" value="80">
+        </div>
+
+        <a id="audioDownloadBtn" href="#" class="icon-btn" title="Tải file âm thanh về máy">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </a>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ======================================================================
+       3. MODAL TRÌNH XEM PDF
+       ====================================================================== -->
+  <div id="pdfModal" class="modal-overlay">
+    <div class="fullscreen-modal">
+      <div class="modal-header">
+        <span id="pdfModalTitle" class="modal-title">Tên file PDF</span>
+        <div class="modal-actions">
+          <a id="pdfOpenNewTab" href="#" target="_blank" class="icon-btn" title="Mở trong tab riêng">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </a>
+          <a id="pdfDownloadBtn" href="#" class="icon-btn" title="Tải về máy">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </a>
+          <button id="pdfCloseBtn" class="icon-btn" title="Đóng (Esc)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <iframe id="pdfViewerFrame" class="pdf-iframe" src="about:blank"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       4. MODAL TRÌNH ĐỌC SÁCH EPUB
+       ====================================================================== -->
+  <div id="epubModal" class="modal-overlay">
+    <div class="fullscreen-modal">
+      <div class="modal-header">
+        <span id="epubModalTitle" class="modal-title">Tên sách EPUB</span>
+        <div class="modal-actions">
+          <!-- Bật tắt Mục Lục -->
+          <button id="epubTocToggleBtn" class="icon-btn" title="Mục lục sách">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="4" y1="6" x2="20" y2="6"/>
+              <line x1="4" y1="12" x2="14" y2="12"/>
+              <line x1="4" y1="18" x2="18" y2="18"/>
+            </svg>
+          </button>
+
+          <!-- Đổi cỡ chữ -->
+          <button id="epubFontMinusBtn" class="icon-btn" title="Giảm cỡ chữ">A-</button>
+          <button id="epubFontPlusBtn" class="icon-btn" title="Tăng cỡ chữ">A+</button>
+
+          <!-- Đổi màu nền đọc sách -->
+          <select id="epubThemeSelect" class="sort-select" title="Phong cách nền đọc sách">
+            <option value="light">Sáng</option>
+            <option value="sepia">Sepia (Ấm áp)</option>
+            <option value="dark">Tối</option>
+          </select>
+
+          <!-- Tải sách -->
+          <a id="epubDownloadBtn" href="#" class="icon-btn" title="Tải file EPUB về máy">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </a>
+
+          <!-- Đóng -->
+          <button id="epubCloseBtn" class="icon-btn" title="Đóng (Esc)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- EPUB Body Container -->
+      <div class="epub-container">
+        <!-- Sidebar Mục lục (TOC) -->
+        <aside id="epubTocSidebar" class="epub-toc-sidebar">
+          <div class="toc-header">Mục lục sách</div>
+          <ul id="epubTocList" class="epub-toc-list"></ul>
+        </aside>
+
+        <!-- Khung hiển thị nội dung sách -->
+        <div class="epub-reader-view">
+          <button id="epubPrevBtn" class="epub-nav-btn epub-prev" title="Trang trước (←)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+
+          <div id="epubArea" class="epub-area"></div>
+
+          <button id="epubNextBtn" class="epub-nav-btn epub-next" title="Trang sau (→)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="epub-footer-bar">
+        <span id="epubProgressText">Đang tải trang...</span>
+        <span>Dùng phím ← và → để lật trang</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       5. MODAL TẠO MÃ HASH ĐỔI MẬT KHẨU
+       ====================================================================== -->
+  <div id="passwordModal" class="modal-overlay">
+    <div class="small-modal">
+      <div class="small-modal-header">
+        <h3>Công cụ đổi mật khẩu</h3>
+        <button id="closePasswordModalBtn" class="icon-btn" title="Đóng">✕</button>
+      </div>
+
+      <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
+        Nhập mật khẩu mới bạn muốn đặt, hệ thống sẽ tự động tính chuỗi mã hóa SHA-256 tương ứng để bạn dán vào <code>js/config.js</code>.
+      </p>
+
+      <div class="input-group">
+        <label class="input-label" for="newPasswordInput">Mật khẩu mới</label>
+        <input type="text" id="newPasswordInput" class="input-field" placeholder="Ví dụ: MatKhauCuaToi@2026">
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="generatedHashOutput">Chuỗi SHA-256 Hash tạo ra</label>
+        <input type="text" id="generatedHashOutput" class="input-field" readonly placeholder="Hash sẽ xuất hiện ở đây...">
+      </div>
+
+      <button id="copyHashBtn" class="btn btn-primary btn-full">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+        </svg>
+        Sao chép chuỗi mã hóa
+      </button>
+
+      <div id="copyConfirmMsg" class="copy-confirm-msg hidden">
+        ✓ Đã sao chép! Hãy mở file <code>js/config.js</code> và dán vào biến <code>PASSWORD_HASH</code>.
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       SCRIPTS (THEO THỨ TỰ PHỤ THUỘC)
+       ====================================================================== -->
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/viewer.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
